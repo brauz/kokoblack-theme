@@ -1,0 +1,200 @@
+{%- capture content_query_string -%}{{ checkout_scripts }}{%- endcapture -%}
+{%- liquid
+  assign link_text_footer = settings.link_text_footer
+  assign text_footer = settings.text_footer
+  assign link_text_footer_2 = settings.link_text_footer_2
+  assign text_footer_2 = settings.text_footer_2
+  assign link_text_footer_3 = settings.link_text_footer_3
+  assign text_footer_3 = settings.text_footer_3
+  assign banner_checkout = settings.banner_checkout
+  assign page_url = content_query_string | split: '"pageurl":"' | last | split: '"' | first | split: '.myshopify.com' | last | replace: '\/', '/' | replace: '%20', ' ' | replace: '\u0026', '&'
+  assign page_url = page_url | remove: '?_fd=0&pb=0' | remove: '&_fd=0&pb=0'
+  assign notice_delivery_text = settings.notice_delivery_text
+  assign notice_delivery_tooltip = settings.notice_delivery_tooltip
+  assign text_order_confirm = settings.text_order_confirm
+  assign text_order_update = settings.text_order_update
+-%}
+
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ direction }}" class="{{ checkout_html_classes }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, height=device-height, minimum-scale=1.0, user-scalable=0">
+    <meta name="referrer" content="origin">
+
+    <title>{{ page_title }}</title>
+
+    {{ content_for_header }}
+    {%- render 'sls-state' -%}
+    <script src="{{ 'theme.js' | asset_url }}" defer="defer"></script>
+    <script type="text/javascript">
+      var LINE_ITEMS = {
+        {%- for item in checkout.line_items -%}
+          {{ forloop.index0 }}: {
+            "tags": {{- item.product.tags | json -}}
+          }{%- unless forloop.last -%},{% endunless %}
+        {%- endfor -%}
+      }
+      var shippingPostCode = `{{ checkout.shipping_address.zip }}`
+    </script>
+    {{ checkout_stylesheets }}
+    {{ checkout_scripts }}
+
+    {%- render 'font-faces' -%}
+    <link rel="preload" href="{{- 'checkout.css' | asset_url -}}" as="style" />
+    <link type="text/css" href="{{- 'checkout.css' | asset_url -}}" rel="stylesheet">
+
+    {% render 'checkout-variables' %}
+    {% render 'leigo-variables' %}
+  </head>
+  <body class="checkout{% if customer %} checkout--customer{% endif %}">
+    {{ skip_to_content_link }}
+
+    <header class="banner !block" data-header role="banner">
+      {%- if banner_checkout != blank -%}
+        <a class="banner__link" href="/">
+          <img class="block object-cover w-full h-full banner__logo" src="{{ banner_checkout | image_url }}" alt="banner_checkout">
+        </a>
+      {%- endif -%}
+    </header>
+
+    {{ order_summary_toggle }}
+    <div class="bg-white content md-checkout:border-t" data-content>
+      <div class="wrap">
+        <div class="main">
+          <header class="main__header" role="banner">
+            {{ breadcrumb }}
+            {{ alternative_payment_methods }}
+          </header>
+          <main class="main__content" role="main">
+            {{ content_for_layout }}
+          </main>
+          {%- if link_text_footer != blank or link_text_footer_2 != blank or link_text_footer_3 != blank -%}
+            <footer class="flex items-center justify-center py-6 main__footer md-checkout:justify-start" role="contentinfo">
+              {%- if link_text_footer != blank -%}
+                <a href="{{- link_text_footer -}}" class="mr-5 tracking-normal link text-label">{{- text_footer -}}</a>
+              {%- endif -%}
+              {%- if link_text_footer_2 != blank -%}
+                <a href="{{- link_text_footer -}}" class="mr-5 tracking-normal link text-label">{{- text_footer_2 -}}</a>
+              {%- endif -%}
+              {%- if link_text_footer_3 != blank -%}
+                <a href="{{- link_text_footer -}}" class="tracking-normal link text-label">{{- text_footer_3 -}}</a>
+              {%- endif -%}
+            </footer>
+          {%- endif -%}
+        </div>
+        <aside class="sidebar" role="complementary">
+          <div class="sidebar__header">
+            {{ content_for_logo }}
+          </div>
+          <div class="sidebar__content">
+            {{ content_for_order_summary }}
+          </div>
+          {%- render 'image-and-text' -%}
+        </aside>
+      </div>
+    </div>
+    {%- capture checkout_email -%}
+      <a href="mailto:{{ checkout.email }}">{{ checkout.email }}</a>
+    {%- endcapture -%}
+    <p class="os-step__text js-order-confirm-description">{{ 'checkout.order_confirm_description_html' | t: checkout_email: checkout_email | append: text_order_confirm }}</p>
+
+    <div class="hidden custom-login js-custom-login">
+      <a href="{{ routes.account_login_url | append: '/?return_to=' | append: page_url }}" class="mr-1 link js-account-link">Log in</a> to your account or sign up <a href="{{ routes.account_register_url }}" class="ml-1 link js-account-link">here</a>
+    </div>
+
+    <div class="layout-hidden">
+      <button type="button" class="flex items-center hidden text-sm text-grey-500 toggle-button-checkout js-toggle-button">
+        {%- render 'icon' with 'icon-plus', class: 'w-3 h-3 mr-1 icon-plus' -%}
+        {%- render 'icon' with 'icon-minus', class: 'w-3 h-3 mr-1 icon-minus hidden' -%}
+        <span class="view">View selections</span>
+        <span class="hidden hide">Hide selections</span>
+      </button>
+    </div>
+
+    <div class="layout-hidden">
+      <div class="pt-6 section section--add-a-gift-card -mb-6 js-add-a-gift-card">
+        {%- render 'checkbox-input',
+          class: 'checkbox-input--checkout',
+          name: 'add-a-gift-card',
+          id: 'add-a-gift-card',
+          label: 'Add a handwritten gift tag'
+        -%}
+        <textarea class="section__gift-card-message" maxlength="120" name="checkout[note]" placeholder="Enter your message" id="checkout-order-notes"></textarea>
+      </div>
+    </div>
+
+      {% comment %}Modal Date module on checkout page{% endcomment %}
+      <div class="select-modal js-select-modal style="display: none;">
+      <div class="select-modal__overlay js-select-modal-close"></div>
+      <div class="select-modal__wrap">
+        <div class="select-modal__inner">
+          <div class="select-modal__close js-select-modal-close">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16">
+              <path id="icon-close-outline" d="M13.333 13.333 2.667 2.667M13.333 2.667 2.667 13.333" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="select-modal__header">Date and time</div>
+          <div class="select-modal__content">
+            <div class="select-modal__options">
+              <div class="select-modal__options-item">
+                <input id="earliest-vailable" name="deliveryOption" type="radio" class="input-radio js-select-modal-option" checked value="auto-apply-time">
+                <label for="earliest-vailable" class="select-modal__options-content">
+                  <strong>Earliest available</strong>
+                  <span class="js-select-modal-option-text">Today at 3pm</span>
+                </label>
+              </div>
+              <div class="select-modal__options-item">
+                <input id="schedule-order" name="deliveryOption" type="radio" class="input-radio js-select-modal-option" value="select-time">
+                <label for="schedule-order" class="select-modal__options-content">
+                  <strong>Schedule an order</strong>
+                  <span class="js-select-modal-option-text">Select a later date and time</span>
+                </label>
+              </div>
+            </div>
+            <div class="select-modal__date" style="display:none">
+              <input type="hidden" class="select-modal__date-input js-select-modal-date" data-range="{{ settings.date_range | default: 7 }}" />
+              <div class="select-modal__times js-select-modal-times">
+                <div class="select-modal__range js-select-modal-range"></div>
+              </div>
+              <div class="select-modal__date-buttons">
+                <button class="select-modal__date-button select-modal__date-button--secondary js-select-modal-button-apply">Apply</button>
+                <button class="select-modal__date-button js-select-modal-button-cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% comment %}Note after 1:30PM each day shipping page {% endcomment %}
+
+    {%- if notice_delivery_text != blank -%}
+      <div class="layout-hidden">
+        <div class="js-notice-dhl-express">
+          <div class="pt-3 flex items-center">
+            <p class="!text-grey-500 underline mr-2.5">{{- notice_delivery_text -}}</p>
+            <div class="tooltip-checkout js-tooltip-trigger">
+              {%- render 'icon' with 'icon-question', class: 'text-grey-500 mb-1 w-4 h-4' -%}
+              <div class="hidden border border-default p-4 absolute bottom-[34px] bg-white -translate-x-1/2 w-[144px] sm:w-[256px] after:absolute after:content-[''] after:-bottom-2.5 after:left-[56%] sm:after:left-[53%] after:-translate-x-1/2 after:w-[18px] after:h-[18px] after:bg-white after:border-l after:border-b after:border-l-default after:border-b-default tooltip-content js-tooltip-content">{{- notice_delivery_tooltip -}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {%- endif -%}
+
+    {{ tracking_code }}
+    {% render 'checkout-discount-code' %}
+    <script src="{{ 'checkout.js' | asset_url }}" defer="defer"></script>
+    {% include 'booster-discounts' %}
+    {% comment %}
+      Classes required by JS files
+    {% endcomment %}  %}
+    <div class="hidden !border-none !pt-0 !w-full"></div>
+  </body>
+</html>
+<style>
+#tooltip-for-phone {
+    color: white;
+}
+</style>
